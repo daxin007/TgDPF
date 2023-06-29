@@ -19,7 +19,7 @@
 - `/paper_writing` 
   写作相关文档
 - `train_clean.py`  
-- 模型训练
+  模型训练
 - `dataset.py`
   数据预处理和训练测试数据生成
 - `model.py`
