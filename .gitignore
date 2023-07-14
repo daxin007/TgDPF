@@ -130,6 +130,8 @@ Experiments/
 result/
 
 record/
+log/
+runs/
 js_record11.pkl
 
 # VS CODE

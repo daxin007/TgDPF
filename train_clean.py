@@ -13,9 +13,14 @@ import shutil
 from timeit import default_timer as timer
 import copy
 from model import NETLSTM, Transformer
+from typing import Dict
 from dataset import *
 from utils import *
 from configs import *
+
+
+from torch.utils.tensorboard import SummaryWriter
+
 
 class AveragePowerCurve(object):
     windspeed_index = 2
@@ -157,6 +162,7 @@ class AveragePowerCurve(object):
         pc = joint_pdf(kernel_p, kernel_w)
         return pc
 
+
 def trainer(dataloader, model, criterion, optimizer, awl, powercurve, epoch, record, logger, jsmode=True, jsonly=False):
     
     # switch to train mode
@@ -274,6 +280,13 @@ def test_noise_rate(testdataset, model, criterion, test_noise, logger):
     return record
 
 
+def gen_figure(array):
+    plt.switch_backend('agg')
+    fig = plt.figure(figsize=(5,5))
+    plt.imshow(array)
+    plt.tight_layout()
+    return fig
+
 
 def nan_seg_tester(model, criterion, nan_seg_dataset, logger):
     model.eval()
@@ -312,6 +325,7 @@ def nan_seg_tester(model, criterion, nan_seg_dataset, logger):
         
     return record
 
+
 def full_mode(
     experiment_id=None,
     start_date=None,
@@ -323,6 +337,7 @@ def full_mode(
     test_noise=False,
     train_noise=False,
     logger=None,
+    writer = None,
     evaluate=False,
     js_only=False,
     js_ratio=1.,
@@ -335,10 +350,20 @@ def full_mode(
         'testloss': {},
     }
     
-    # awl = AutomaticWeightedLoss(2)
     awl = None
-    # testdataset = TestDataset(root_dir, start_date=start_date, noise_rate=noise_rate)
-    testdataset = NanSegDataset(ROOT_DIR, start_date=start_date, noise_rate=noise_rate)
+
+
+    ROOT_DIR = '江苏十分钟数据'
+
+    FILE_LIST = [os.path.join(ROOT_DIR, f) for f in get_file_list(ROOT_DIR, r'.*csv')]
+
+    if not os.path.exists('record'):
+        os.mkdir('record')
+
+    DATASET = make_dataset(FILE_LIST)
+
+    testdataset = NanSegDataset(DATASET, start_date=start_date, noise_rate=noise_rate)
+
     criterion = nn.MSELoss()
     
     model = NETLSTM(
@@ -347,6 +372,7 @@ def full_mode(
         dim_out=1,
         num_layer=2,
         dropout=0.3)
+
     model.to(DEVICE)
     lr = 1e-2
     optimizer = optim.Adam(model.parameters(), lr=lr)
@@ -383,7 +409,7 @@ def full_mode(
                 file_list = FILE_LIST,
                 split_date = start_date,
                 train_len = train_len,
-                noise_rate=noise_rate
+                noise_rate = noise_rate
             )
         else:
             logger.info('remove train noise')
@@ -392,10 +418,9 @@ def full_mode(
                 file_list = FILE_LIST,
                 split_date = start_date,
                 train_len = train_len,
-                noise_rate=0
+                noise_rate = 0
             )
         
-        # powercurve = PowerCurve(list(training_dataset.datasets()), js_ratio=js_ratio)
         powercurve = AveragePowerCurve(list(training_dataset.datasets()), js_ratio=js_ratio)
         
         dataloader = DataLoader(
@@ -404,6 +429,7 @@ def full_mode(
             batch_size=batch_size,
             drop_last=True,
             num_workers=4)
+
         for epoch in range(epochs):
             epoch = epoch + start_epoch
             logger.info(f'running epoch {epoch}')
@@ -438,8 +464,6 @@ def full_mode(
         with open(f'record/{experiment_id}.pkl', 'wb') as f:
             pickle.dump(record, f)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
 
-        # with open(f'js_record6.pkl', 'wb') as f:
-        #     pickle.dump(js_record, f)
 
 def main():
     parser = argparse.ArgumentParser(description='Wind Power Forecast')
@@ -449,7 +473,7 @@ def main():
                         help='number of epoch to train (default: 10)')
     parser.add_argument('--seed', type=int, default=4444, metavar='S',
                         help='random seed (default: 0)')
-    parser.add_argument('--id', type=str, default='lstm_origin', metavar='N',
+    parser.add_argument('--id', type=str, default='1', metavar='N',
                         help='experiment id (default: 0)')
     parser.add_argument('--start', type=str, default='2020-11-01', metavar='XXXX-XX-XX',
                         help='start date (default: 2020-11-01)')
@@ -472,7 +496,6 @@ def main():
     parser.add_argument('--load_exist', action='store_true', default=False,
                         help='load exist model')
 
-    # os.chdir(r'G:\风能\DT')
     if not os.path.exists('record'):
         os.mkdir('record')
         
@@ -486,6 +509,8 @@ def main():
                                 level=logging.DEBUG)
     
     logger = logging.getLogger(f'Experiment-{args.id}')
+
+    writer = SummaryWriter(log_dir=f'runs/{args.id}')
     
     torch.cuda.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
@@ -521,6 +546,7 @@ def main():
               train_noise=args.train_noise,
               train_len=args.train_len,
               logger=logger,
+              writer=writer,
               js_only=args.js_only,
               js_ratio=args.js_ratio,
               load_exist=args.load_exist)
