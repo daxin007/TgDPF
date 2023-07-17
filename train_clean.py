@@ -467,13 +467,13 @@ def main():
                         help='number of epoch to train (default: 10)')
     parser.add_argument('--seed', type=int, default=6666, metavar='S',
                         help='random seed (default: 0)')
-    parser.add_argument('--id', type=str, default='1', metavar='N',
+    parser.add_argument('--id', type=str, default='2', metavar='N',
                         help='experiment id (default: 0)')
     parser.add_argument('--start', type=str, default='2020-11-01', metavar='XXXX-XX-XX',
                         help='start date (default: 2020-11-01)')
     parser.add_argument('--train_len', type=int, default=10, metavar='N',
                         help='training date legenth')
-    parser.add_argument('--js_mode', action='store_true', default=False,
+    parser.add_argument('--js_mode', action='store_true', default=True,
                         help='enable js loss')
     parser.add_argument('--noise_rate', type=float, default=0, metavar='V',
                         help='noise for target')
