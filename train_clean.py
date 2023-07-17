@@ -163,7 +163,7 @@ class AveragePowerCurve(object):
         return pc
 
 
-def trainer(dataloader, model, criterion, optimizer, awl, powercurve, epoch, record, logger, jsmode=True, jsonly=False):
+def trainer(dataloader, model, criterion, optimizer, writer, powercurve, epoch, record, logger, jsmode=True, jsonly=False):
     
     # switch to train mode
     model.train(True)
@@ -172,7 +172,7 @@ def trainer(dataloader, model, criterion, optimizer, awl, powercurve, epoch, rec
     
     t.set_description(f'Epoch {epoch+1}')
     
-    for _, (input_, target) in enumerate(t):
+    for i, (input_, target) in enumerate(t):
         
         optimizer.zero_grad()
         
@@ -228,6 +228,7 @@ def trainer(dataloader, model, criterion, optimizer, awl, powercurve, epoch, rec
             loss = criterion(output, target)
             
             record.update('mse', loss.item())
+            writer.add_scalar('Loss/train', loss, epoch*len(dataloader) + i)
 
 
         loss.backward()
@@ -294,8 +295,8 @@ def nan_seg_tester(model, criterion, nan_seg_dataset: List[Tuple[str, List]], lo
     for i, (name, testset) in enumerate(nan_seg_dataset):
         full_test_target = []
         full_predict = []
-        for data_seg in testset:
-            test_input, test_target = data_seg
+        for test_input, test_target in testset:
+
             test_input = test_input.to(DEVICE)
             test_target = test_target.to(DEVICE)
             
@@ -347,9 +348,6 @@ def full_mode(
         'checkpoint': {},
         'testloss': {},
     }
-    
-    awl = None
-
 
     ROOT_DIR = '江苏十分钟数据'
 
@@ -432,7 +430,7 @@ def full_mode(
             
             # training
             start = timer()
-            trainer(dataloader, model, criterion, optimizer, awl,
+            trainer(dataloader, model, criterion, optimizer, writer,
                     powercurve, epoch, train_record, logger, jsmode=js_mode, jsonly=js_only)
             end = timer()
             logger.info(f'epoch {epoch}: func [trainer] cost {end-start}')
@@ -444,7 +442,7 @@ def full_mode(
                 'state_dict': copy.deepcopy(model.state_dict()),
                 'optimizer': copy.deepcopy(optimizer.state_dict()),
             }
-            
+            # writer.add_scalar('Loss/test', test_record[0], epoch*len(dataloader))
             record['testloss'][epoch] = test_record
 
         logger.info('training complete')
@@ -467,7 +465,7 @@ def main():
                         help='input batch size for training (default: 64)')
     parser.add_argument('--epochs', type=int, default=50, metavar='N',
                         help='number of epoch to train (default: 10)')
-    parser.add_argument('--seed', type=int, default=4444, metavar='S',
+    parser.add_argument('--seed', type=int, default=6666, metavar='S',
                         help='random seed (default: 0)')
     parser.add_argument('--id', type=str, default='1', metavar='N',
                         help='experiment id (default: 0)')
