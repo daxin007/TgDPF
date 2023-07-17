@@ -7,7 +7,7 @@ import datetime
 import numpy as np
 from configs import *
 import pickle
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from warnings import simplefilter
 simplefilter(action="ignore",category=FutureWarning)
 
@@ -38,23 +38,15 @@ def read_file(filepath):
 def make_dataset(files, load_exist=False):
     # return a dict of data named with data file path
     dataset_path = 'dataset.pkl'
-    dataset : List[str, pd.DataFrame] = []
+    dataset : List[Tuple[str, pd.DataFrame]] = []
     if load_exist and os.path.exists(dataset_path):
         with open(dataset_path, 'rb') as f:
             dataset = pickle.load(f)
     else:
         for file in files:
-            dataset.append([file, read_file(file)])
+            dataset.append((file, read_file(file)))
     return dataset
 
-# ROOT_DIR = '江苏十分钟数据'
-# FILE_LIST = get_file_list(ROOT_DIR, r'.*csv')
-# # print(FILE_LIST)
-# FILE_LIST = ['江苏十分钟数据/' + f for f in FILE_LIST]
-# if not os.path.exists('record'):
-#     os.mkdir('record')
-
-# DATASET = make_dataset(FILE_LIST)
 
 def data_clean(df):
     df = df.interpolate(limit=1)
@@ -102,9 +94,9 @@ class NanSegDataset(torch.utils.data.Dataset):
             return end_date.strftime('%Y-%m-%d')
 
     def __init_dataset(self):
-        self.testset : List[str, List] = []
+        self.testset : List[Tuple[str, List]] = []
         for item, data in self._data:
-            full_data: List[List[torch.Tensor, torch.Tensor]] = []
+            full_data: List[Tuple[torch.Tensor, torch.Tensor]] = []
             # delete data after 2020-12-15
             mask = (data.index > self.start_date) & (data.index < self.end_date)
             data = data.loc[mask]
@@ -132,8 +124,8 @@ class NanSegDataset(torch.utils.data.Dataset):
                 if len(data_seg) > self.window_size:
                     data_seg = torch.as_tensor(data_seg.values, dtype=self.dtype)
                     data_in, data_target = time_ahead(data_seg, training=False)
-                    full_data.append([data_in, data_target])
-            self.testset.append([item, full_data])
+                    full_data.append((data_in, data_target))
+            self.testset.append((item, full_data))
 
     def set_noise_rate(self, value):
         self.noise_rate = value
@@ -208,13 +200,13 @@ class SeqDataset_KFold(torch.utils.data.Dataset):
             return data.loc[mask]
 
     def __data_loader(self):
-        for data in self._data:
+        for _, data in self._data:
             data = data_clean(data)
             data = data.loc[:'2020-12-15']
             data = self.read_data_segment(data)
             yield data
 
-    def datasets(self, norm=False, remove_nan=True):
+    def datasets(self, norm=False, remove_nan=False):
         for filename, data in self._data:
             data = data_clean(data)
             data = self.read_data_segment(data)

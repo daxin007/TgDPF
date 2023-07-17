@@ -13,7 +13,7 @@ import shutil
 from timeit import default_timer as timer
 import copy
 from model import NETLSTM, Transformer
-from typing import Dict
+from typing import Dict, List, Tuple
 from dataset import *
 from utils import *
 from configs import *
@@ -260,8 +260,6 @@ def evaluater(model, test_input):
     model.eval()
     with torch.no_grad():
         predict, _ = model(test_input.reshape(1, len(test_input), -1), training=False)
-        # predict = model(test_input.reshape(1, len(test_input), -1))
-        # predict = predict.reshape(-1, 1)
     return predict
 
 
@@ -288,12 +286,12 @@ def gen_figure(array):
     return fig
 
 
-def nan_seg_tester(model, criterion, nan_seg_dataset, logger):
+def nan_seg_tester(model, criterion, nan_seg_dataset: List[Tuple[str, List]], logger):
     model.eval()
     
     record = {}
     
-    for i, (testset, name) in enumerate(nan_seg_dataset):
+    for i, (name, testset) in enumerate(nan_seg_dataset):
         full_test_target = []
         full_predict = []
         for data_seg in testset:
@@ -405,8 +403,7 @@ def full_mode(
         if train_noise:
             logger.info(f'train_noise mode on, set noise to {noise_rate}')
             training_dataset = SeqDataset_KFold(
-                ROOT_DIR,
-                file_list = FILE_LIST,
+                DATASET,
                 split_date = start_date,
                 train_len = train_len,
                 noise_rate = noise_rate
@@ -414,8 +411,7 @@ def full_mode(
         else:
             logger.info('remove train noise')
             training_dataset = SeqDataset_KFold(
-                ROOT_DIR, 
-                file_list = FILE_LIST,
+                DATASET, 
                 split_date = start_date,
                 train_len = train_len,
                 noise_rate = 0
